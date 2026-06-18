@@ -42,13 +42,14 @@ public class AtsBulkController {
      * POST /api/ats/process-all
      *
      * Runs ATS scoring on every uploaded resume AND writes the
-     * derived status (HIRED / SHORTLISTED / REJECTED) back to
-     * every Application row for that candidate.
+     * derived status (SHORTLISTED / REJECTED) back to                    // CHANGED
+     * every Application row for that candidate.                          // CHANGED
+     * ATS scoring never assigns HIRED — HIRED is only ever set            // CHANGED
+     * manually by a recruiter/manager via the Hire action.                // CHANGED
      *
-     * Status mapping:
-     *   score >= 80  →  HIRED
-     *   score >= 60  →  SHORTLISTED
-     *   score <  60  →  REJECTED
+     * Status mapping:                                                    // CHANGED
+     *   score >= 60  →  SHORTLISTED                                      // CHANGED
+     *   score <  60  →  REJECTED                                         // CHANGED
      */
     @PostMapping("/process-all")
     public ResponseEntity<AtsBulkResponseDto> processAll() {
