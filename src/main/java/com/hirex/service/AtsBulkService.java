@@ -20,10 +20,12 @@ import java.util.stream.Collectors;
  * Processes in configurable batches to handle 1000+ resumes
  * without OOM issues.
  *
- * Score → Status mapping:
- *   >= 80  →  HIRED
- *   >= 60  →  SHORTLISTED
- *   <  60  →  REJECTED
+ * Score → Status mapping:                                    // CHANGED
+ *   >= 60  →  SHORTLISTED                                     // CHANGED
+ *   <  60  →  REJECTED                                        // CHANGED
+ *                                                              // CHANGED
+ * NOTE: ATS scoring NEVER assigns HIRED. HIRED is only set     // CHANGED
+ * manually by a recruiter/manager via the Hire action.         // CHANGED
  */
 @Service
 public class AtsBulkService {
@@ -145,16 +147,18 @@ public class AtsBulkService {
                     totalProcessed++;
 
                     switch (derivedStatus) {
-                        case "HIRED"       -> hiredCount++;
-                        case "SHORTLISTED" -> shortlistCount++;
-                        default            -> rejectedCount++;
+                        case "SHORTLISTED" -> shortlistCount++;       // CHANGED
+                        default            -> rejectedCount++;        // CHANGED (HIRED case removed — ATS never assigns HIRED)
                     }
 
                     // Persist status to ALL applications for this user
                     if (persistStatus) {
                         List<Application> apps = appRepo.findByApplicantId(resume.getUser().getId());
-                        ApplicationStatus statusEnum = ApplicationStatus.valueOf(derivedStatus);
+                        ApplicationStatus statusEnum = ApplicationStatus.valueOf(derivedStatus); // CHANGED: derivedStatus can now only be SHORTLISTED/REJECTED, never HIRED
                         for (Application app : apps) {
+                            if (app.getStatus() == ApplicationStatus.HIRED) {  // CHANGED: never overwrite a manually-set HIRED status via ATS
+                                continue;                                      // CHANGED
+                            }
                             app.setStatus(statusEnum);
                         }
                         if (!apps.isEmpty()) {
@@ -170,7 +174,7 @@ public class AtsBulkService {
         AtsBulkResponseDto response = new AtsBulkResponseDto();
         response.setTotalProcessed(totalProcessed);
         response.setTotalSkipped(totalSkipped);
-        response.setTotalHired(hiredCount);
+        response.setTotalHired(hiredCount); // CHANGED: hiredCount is always 0 now — ATS never assigns HIRED; field kept for API/DTO compatibility
         response.setTotalShortlisted(shortlistCount);
         response.setTotalRejected(rejectedCount);
         response.setResults(results);
@@ -180,13 +184,14 @@ public class AtsBulkService {
 
     /**
      * Derive application status from ATS score.
-     *   >= 80  → HIRED
-     *   >= 60  → SHORTLISTED
-     *   <  60  → REJECTED
+     *   >= 60  → SHORTLISTED                                              // CHANGED
+     *   <  60  → REJECTED                                                 // CHANGED
+     *
+     * ATS score NEVER results in HIRED. HIRED is only ever set            // CHANGED
+     * manually by a recruiter/manager through the explicit Hire action.   // CHANGED
      */
     public static String deriveStatus(int score) {
-        if (score >= 80) return "HIRED";
-        if (score >= 60) return "SHORTLISTED";
+        if (score >= 60) return "SHORTLISTED";   // CHANGED (was: >= 80 -> HIRED, >= 60 -> SHORTLISTED)
         return "REJECTED";
     }
 
